@@ -1,6 +1,13 @@
 """Tool implementations for Jawafdehi MCP server."""
 
 from .base import BaseTool
+from .annual_report_pipeline import (
+    AnnualReportPathsTool,
+    AnnualReportStatusTool,
+    AssembleAnnualReportYearTool,
+    ExtractAnnualReportPdfTool,
+    PrepareAnnualReportYearTool,
+)
 from .date_converter import DateConverterTool
 from .document_converter import DocumentConverterTool
 from .jawafdehi_cases import (
@@ -22,6 +29,11 @@ from .ngm_judicial import NGMJudicialTool
 
 __all__ = [
     "BaseTool",
+    "ExtractAnnualReportPdfTool",
+    "PrepareAnnualReportYearTool",
+    "AssembleAnnualReportYearTool",
+    "AnnualReportStatusTool",
+    "AnnualReportPathsTool",
     "NGMJudicialTool",
     "NGMExtractCaseDataTool",
     "SearchJawafdehiCasesTool",

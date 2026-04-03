@@ -7,16 +7,21 @@ from mcp.server.stdio import stdio_server
 from mcp.types import TextContent, Tool
 
 from .tools import (
+    AnnualReportPathsTool,
+    AnnualReportStatusTool,
+    AssembleAnnualReportYearTool,
     BaseTool,
     CreateJawafdehiCaseTool,
     DateConverterTool,
     DocumentConverterTool,
+    ExtractAnnualReportPdfTool,
     GetJawafdehiCaseTool,
     GetNESEntityPrefixesTool,
     GetNESEntityPrefixSchemaTool,
     NGMExtractCaseDataTool,
     NGMJudicialTool,
     PatchJawafdehiCaseTool,
+    PrepareAnnualReportYearTool,
     SearchJawafdehiCasesTool,
     SubmitNESChangeTool,
 )
@@ -27,6 +32,11 @@ app = Server("jawafdehi-mcp")
 
 # Registry of available tools
 TOOLS: list[BaseTool] = [
+    ExtractAnnualReportPdfTool(),
+    PrepareAnnualReportYearTool(),
+    AssembleAnnualReportYearTool(),
+    AnnualReportStatusTool(),
+    AnnualReportPathsTool(),
     NGMJudicialTool(),
     NGMExtractCaseDataTool(),
     SearchJawafdehiCasesTool(),

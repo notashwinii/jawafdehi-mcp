@@ -1,6 +1,6 @@
 # Jawafdehi MCP Server
 
-Model Context Protocol (MCP) server providing tools for integrating LLM workflows with Jawafdehi products, including Jawafdehi.org, Nepal Entity Service (NES), Nepal Government Modernization (NGM), and MarkItDown-based document conversion with the `likhit` plugin.
+Model Context Protocol (MCP) server providing tools for integrating LLM workflows with Jawafdehi products, including Jawafdehi.org, Nepal Entity Service (NES), Nepal Government Modernization (NGM), MarkItDown-based document conversion with the `likhit` plugin, and the annual-report extraction workflow that used to live in the standalone `regrex` package.
 
 ## Available MCP Tools
 
@@ -35,6 +35,11 @@ Model Context Protocol (MCP) server providing tools for integrating LLM workflow
 
 - `convert_to_markdown`: Convert documents through MarkItDown with plugins enabled by default; the `likhit` plugin adds Nepal-specific handling for supported PDFs and legacy `.doc` files. Markdown is returned directly by default, or written to a file when `output_path` is provided
 - `convert_date`: Convert dates between AD and BS calendars
+- `extract_annual_report_pdf`: Extract a Nepali annual report PDF into annual-report workspace artifacts
+- `prepare_annual_report_year`: Discover sections, split markdown, parse tables, and export paragraph prompts
+- `assemble_annual_report_year`: Assemble manually saved JSON responses and write normalized XLSX files
+- `annual_report_status`: Show progress for paragraph-response collection
+- `annual_report_year_paths`: Return the main working directories for a prepared year
 
 ## Architecture
 

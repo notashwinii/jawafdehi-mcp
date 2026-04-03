@@ -4,14 +4,20 @@
 
 The Jawafdehi MCP server uses a modular architecture that makes it easy to add, remove, or modify tools without affecting the core server logic.
 
+Annual-report extraction follows the same model. The pipeline helpers live under
+`src/jawafdehi_mcp/annual_report/`, while the MCP-facing wrappers live in
+`src/jawafdehi_mcp/tools/annual_report_pipeline.py`.
+
 ## Directory Structure
 
 ```
 src/jawafdehi_mcp/
 ├── __init__.py           # Package initialization
+├── annual_report/        # Annual-report extraction pipeline helpers
 ├── server.py             # Main MCP server with tool registry
 └── tools/                # Tool implementations
     ├── __init__.py       # Tool exports
+    ├── annual_report_pipeline.py  # Annual-report MCP tools
     ├── base.py           # BaseTool abstract class
     ├── ngm_judicial.py   # NGM judicial query tool
     └── example_tool.py   # Example tool template
