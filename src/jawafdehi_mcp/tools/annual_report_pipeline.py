@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from typing import Any, Callable
+from urllib.parse import unquote, urlparse
+from urllib.request import urlopen
 
 from mcp.types import TextContent
 
@@ -45,6 +47,18 @@ def _coerce_required_path(arguments: dict[str, Any], key: str) -> Path:
     return path
 
 
+def _coerce_optional_url(arguments: dict[str, Any], key: str) -> str | None:
+    value = arguments.get(key)
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"'{key}' must be a non-empty URL when provided.")
+    parsed = urlparse(value)
+    if parsed.scheme not in {"http", "https"}:
+        raise ValueError(f"'{key}' must use http:// or https://.")
+    return value
+
+
 def _coerce_year(arguments: dict[str, Any]) -> str:
     value = arguments.get("year")
     if not isinstance(value, str) or not value.strip():
@@ -73,6 +87,46 @@ def _run_with_logs(operation: Callable[[Callable[[str], None]], dict[str, Any]])
 
 def _text_response(data: dict[str, Any]) -> list[TextContent]:
     return [TextContent(type="text", text=json.dumps(data, ensure_ascii=False, indent=2))]
+
+
+def _resolve_remote_or_local_pdf(
+    root: Path,
+    year: str,
+    arguments: dict[str, Any],
+    progress: Callable[[str], None],
+) -> Path:
+    pdf_path = _coerce_optional_path(arguments, "pdf_path")
+    pdf_url = _coerce_optional_url(arguments, "pdf_url")
+    if bool(pdf_path) == bool(pdf_url):
+        raise ValueError("Provide exactly one of 'pdf_path' or 'pdf_url'.")
+    if pdf_path is not None:
+        return pdf_path
+    assert pdf_url is not None
+    return _download_pdf_to_workspace(root, year, pdf_url, progress)
+
+
+def _download_pdf_to_workspace(
+    root: Path,
+    year: str,
+    pdf_url: str,
+    progress: Callable[[str], None],
+) -> Path:
+    reports_dir = root / "reports"
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    parsed = urlparse(pdf_url)
+    remote_name = Path(unquote(parsed.path)).name
+    target_name = f"{year}.pdf"
+    if remote_name.lower().endswith(".pdf"):
+        target_name = target_name if remote_name == target_name else target_name
+    target_path = reports_dir / target_name
+    progress(f"[{year}] Downloading PDF from {pdf_url}")
+    with urlopen(pdf_url) as response:
+        payload = response.read()
+    if not payload:
+        raise ValueError(f"Downloaded empty response from {pdf_url}")
+    target_path.write_bytes(payload)
+    progress(f"[{year}] Saved downloaded PDF to {target_path}")
+    return target_path
 
 
 class ExtractAnnualReportPdfTool(BaseTool):
@@ -105,13 +159,17 @@ class ExtractAnnualReportPdfTool(BaseTool):
                     "type": "string",
                     "description": "Absolute or workspace-relative path to the source PDF.",
                 },
+                "pdf_url": {
+                    "type": "string",
+                    "description": "HTTP(S) URL of the source PDF. Mutually exclusive with pdf_path.",
+                },
                 "timeout_seconds": {
                     "type": "number",
                     "description": "Optional extraction timeout in seconds. Defaults to 300.",
                     "default": 300,
                 },
             },
-            "required": ["workspace_root", "year", "pdf_path"],
+            "required": ["workspace_root", "year"],
             "additionalProperties": False,
         }
 
@@ -119,13 +177,12 @@ class ExtractAnnualReportPdfTool(BaseTool):
         try:
             root = _coerce_root(arguments)
             year = _coerce_year(arguments)
-            pdf_path = _coerce_required_path(arguments, "pdf_path")
             timeout_seconds = _coerce_timeout(arguments)
             result = _run_with_logs(
                 lambda progress: extract_year_pdf(
                     root,
                     year,
-                    pdf_path=pdf_path,
+                    pdf_path=_resolve_remote_or_local_pdf(root, year, arguments, progress),
                     progress=progress,
                     timeout_seconds=timeout_seconds,
                 )
@@ -165,9 +222,13 @@ class PrepareAnnualReportYearTool(BaseTool):
                     "type": "string",
                     "description": "Absolute or workspace-relative path to a source PDF.",
                 },
+                "pdf_url": {
+                    "type": "string",
+                    "description": "HTTP(S) URL of a source PDF.",
+                },
                 "timeout_seconds": {
                     "type": "number",
-                    "description": "Optional extraction timeout in seconds when using pdf_path.",
+                    "description": "Optional extraction timeout in seconds when using pdf_path or pdf_url.",
                     "default": 300,
                 },
             },
@@ -181,15 +242,23 @@ class PrepareAnnualReportYearTool(BaseTool):
             year = _coerce_year(arguments)
             md_path = _coerce_optional_path(arguments, "md_path")
             pdf_path = _coerce_optional_path(arguments, "pdf_path")
-            if bool(md_path) == bool(pdf_path):
-                raise ValueError("Provide exactly one of 'md_path' or 'pdf_path'.")
+            pdf_url = _coerce_optional_url(arguments, "pdf_url")
+            provided = sum(value is not None for value in (md_path, pdf_path, pdf_url))
+            if provided != 1:
+                raise ValueError(
+                    "Provide exactly one of 'md_path', 'pdf_path', or 'pdf_url'."
+                )
             timeout_seconds = _coerce_timeout(arguments)
             result = _run_with_logs(
                 lambda progress: prepare_year(
                     root,
                     year,
                     md_path=md_path,
-                    pdf_path=pdf_path,
+                    pdf_path=(
+                        _resolve_remote_or_local_pdf(root, year, arguments, progress)
+                        if md_path is None
+                        else None
+                    ),
                     progress=progress,
                     timeout_seconds=timeout_seconds,
                 )

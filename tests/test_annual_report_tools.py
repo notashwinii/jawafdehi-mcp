@@ -21,6 +21,7 @@ from jawafdehi_mcp.tools.annual_report_pipeline import (
     AnnualReportPathsTool,
     AnnualReportStatusTool,
     AssembleAnnualReportYearTool,
+    ExtractAnnualReportPdfTool,
     PrepareAnnualReportYearTool,
 )
 
@@ -226,6 +227,89 @@ async def test_prepare_tool_returns_json(annual_report_workspace: Path):
     )
     payload = json.loads(response[0].text)
     assert payload["sections"] == 2
+
+
+@pytest.mark.asyncio
+async def test_prepare_tool_accepts_pdf_url(monkeypatch, annual_report_workspace: Path):
+    tool = PrepareAnnualReportYearTool()
+
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def read(self) -> bytes:
+            return b"%PDF-1.4 fake remote pdf"
+
+    monkeypatch.setattr(
+        "jawafdehi_mcp.tools.annual_report_pipeline.urlopen",
+        lambda url: FakeResponse(),
+    )
+
+    def fake_prepare_year(root, year, *, md_path=None, pdf_path=None, progress=None, timeout_seconds=300.0):
+        assert md_path is None
+        assert pdf_path == annual_report_workspace / "reports" / "2069-70.pdf"
+        assert pdf_path.exists()
+        return {"year": year, "sections": 0}
+
+    monkeypatch.setattr(
+        "jawafdehi_mcp.tools.annual_report_pipeline.prepare_year",
+        fake_prepare_year,
+    )
+
+    response = await tool.execute(
+        {
+            "workspace_root": str(annual_report_workspace),
+            "year": "2069-70",
+            "pdf_url": "https://example.com/reports/annual.pdf",
+        }
+    )
+    payload = json.loads(response[0].text)
+    assert payload["year"] == "2069-70"
+    assert (annual_report_workspace / "reports" / "2069-70.pdf").exists()
+
+
+@pytest.mark.asyncio
+async def test_extract_tool_accepts_pdf_url(monkeypatch, annual_report_workspace: Path):
+    tool = ExtractAnnualReportPdfTool()
+
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def read(self) -> bytes:
+            return b"%PDF-1.4 fake remote pdf"
+
+    monkeypatch.setattr(
+        "jawafdehi_mcp.tools.annual_report_pipeline.urlopen",
+        lambda url: FakeResponse(),
+    )
+
+    def fake_extract_year_pdf(root, year, pdf_path, *, progress=None, timeout_seconds=300.0):
+        assert pdf_path == annual_report_workspace / "reports" / "2069-70.pdf"
+        assert pdf_path.exists()
+        return {"year": year, "markdown_path": str(root / "reports" / f"{year}.md")}
+
+    monkeypatch.setattr(
+        "jawafdehi_mcp.tools.annual_report_pipeline.extract_year_pdf",
+        fake_extract_year_pdf,
+    )
+
+    response = await tool.execute(
+        {
+            "workspace_root": str(annual_report_workspace),
+            "year": "2069-70",
+            "pdf_url": "https://example.com/reports/annual.pdf",
+        }
+    )
+    payload = json.loads(response[0].text)
+    assert payload["year"] == "2069-70"
+    assert (annual_report_workspace / "reports" / "2069-70.pdf").exists()
 
 
 @pytest.mark.asyncio
